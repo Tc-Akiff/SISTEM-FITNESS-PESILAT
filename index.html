@@ -1,13 +1,864 @@
 <!DOCTYPE html>
 <html lang="ms">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PESILAT FATANI KEDAH</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PESILAT FATANI KEDAH</title>
+  <!-- Load Vue 3 dari CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Load Tesseract OCR dari CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    /* PALET WARNA TEMA FATANI KEDAH */
+    .app-container { min-height: 100vh; background: #0b0f19; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; box-sizing: border-box; }
+    .wrapper { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .space-y-gap { display: flex; flex-direction: column; gap: 20px; }
+
+    /* HEADER */
+    .header { 
+      background: #161e2e; 
+      border: 1px solid #2d3748; 
+      border-left: 6px solid #dc2626; 
+      border-radius: 20px; 
+      padding: 16px 20px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      box-shadow: 0 10px 25px -5px rgba(220, 38, 38, 0.15);
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo-wrapper { width: 48px; height: 44px; display: flex; align-items: center; justify-content: center; }
+    .custom-logo-img { width: 46px; height: 46px; object-fit: contain; border-radius: 50%; border: 2px solid #22c55e; background: #fff; padding: 2px; }
+    .logo-box { width: 44px; height: 44px; background: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 2px solid #eab308; }
+    .logo-title { font-size: 16px; font-weight: 900; margin: 0; color: #ffffff; letter-spacing: 0.5px; }
+    .highlight { color: #22c55e; }
+    .logo-sub { font-size: 9px; color: #eab308; font-weight: 800; margin: 3px 0 0 0; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .user-session { display: flex; align-items: center; gap: 10px; }
+    .user-badge { background: #1e293b; font-size: 11px; font-weight: 800; padding: 6px 12px; border-radius: 10px; border: 1px solid #334155; }
+    .atlet-badge { color: #22c55e; border-color: rgba(34, 197, 94, 0.3); }
+    .coach-badge { color: #eab308; border-color: rgba(234, 179, 8, 0.3); }
+    .admin-badge { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+    .btn-logout { background: #dc2626; color: #fff; border: none; font-size: 10px; font-weight: 900; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+
+    /* TARGET INDIVIDU BAR (6KM) */
+    .target-card { background: #161e2e; border: 1px solid #2d3748; border-top: 4px solid #22c55e; border-radius: 18px; padding: 16px; }
+    .target-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .target-title { font-size: 13px; font-weight: 900; margin: 0; color: #f8fafc; }
+    .target-sub { font-size: 10px; color: #94a3b8; margin: 2px 0 0 0; }
+    .target-pct { font-size: 18px; font-weight: 900; color: #22c55e; }
+    .progress-bar-bg { background: #0f172a; border-radius: 10px; height: 10px; overflow: hidden; border: 1px solid #1e293b; }
+    .progress-bar-fill { background: linear-gradient(90deg, #dc2626, #eab308, #22c55e); height: 100%; transition: width 0.4s ease; }
+
+    /* BADGES ACHIEVEMENT */
+    .badge-container { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .achievement-badge { font-size: 9px; font-weight: 900; padding: 3px 8px; border-radius: 6px; }
+    .bg-gold { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .bg-green { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .bg-red { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .completed-tag { font-size: 9px; background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+
+    /* MAIN TAB NAV */
+    .main-tab-nav { display: flex; gap: 8px; background: #161e2e; padding: 6px; border-radius: 16px; border: 1px solid #2d3748; }
+    .tab-btn { flex: 1; background: transparent; color: #94a3b8; border: none; padding: 10px; border-radius: 12px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; }
+    .tab-btn.active { background: #dc2626; color: #ffffff; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); }
+
+    /* UPLOAD BUKTI OCR BOX */
+    .upload-ocr-box { background: #0f172a; border: 1px dashed #22c55e; padding: 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 8px; text-align: center; }
+    .ocr-label { font-size: 11px; font-weight: 800; color: #22c55e; text-transform: uppercase; }
+    .btn-ocr-file { background: #22c55e; color: #0b0f19; font-weight: 900; padding: 10px; border-radius: 10px; font-size: 12px; cursor: pointer; display: block; }
+    .scan-status-text { font-size: 11px; color: #eab308; font-weight: bold; }
+    .proof-preview-wrapper { margin-top: 6px; }
+    .proof-img-preview { max-height: 120px; border-radius: 10px; border: 1px solid #2d3748; object-fit: contain; }
+
+    /* RPE EXPLANATION BOX */
+    .rpe-desc-box { background: #161e2e; border: 1px solid #2d3748; border-left: 4px solid #eab308; padding: 8px 10px; border-radius: 8px; font-size: 10px; color: #94a3b8; margin-top: 8px; line-height: 1.4; }
+    .rpe-desc-text { color: #f8fafc; font-weight: bold; }
+
+    .tracker-select { font-weight: bold; color: #eab308; }
+    .tracker-tag { font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 5px; margin-right: 4px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; }
+    .tracker-tag.Strava { background: rgba(249, 115, 22, 0.2); color: #f97316; border-color: rgba(249, 115, 22, 0.4); }
+
+    .read-only-input { background: #1a2332 !important; border-color: #334155 !important; color: #eab308 !important; font-weight: 900 !important; cursor: not-allowed; }
+    .lock-tag { font-size: 9px; color: #eab308; margin-left: 4px; }
+
+    .proof-feed-box { background: #161e2e; padding: 8px; border-radius: 10px; border: 1px solid #2d3748; margin-top: 4px; }
+    .proof-label { font-size: 9px; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px; }
+    .proof-feed-img { height: 90px; border-radius: 8px; object-fit: cover; border: 1px solid #334155; }
+
+    .coach-panel { background: #1a2332; border: 1px solid #2d3748; padding: 16px; border-radius: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .coach-header-row { display: flex; justify-content: space-between; align-items: center; }
+    .coach-header-row h3 { margin: 0; font-size: 14px; color: #f8fafc; font-weight: 900; }
+    .sub-text { font-size: 11px; color: #94a3b8; }
+    .btn-export { background: #22c55e; color: #0b0f19; border: none; padding: 8px 14px; border-radius: 10px; font-size: 11px; font-weight: 900; cursor: pointer; }
+
+    .red-flag-box { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 12px; color: #fca5a5; font-size: 11px; }
+    .red-flag-box h4 { margin: 0 0 6px 0; color: #ef4444; font-size: 12px; }
+    .red-flag-box ul { margin: 0; padding-left: 16px; }
+    .text-danger { color: #ef4444; font-weight: bold; }
+
+    .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-filter { background: #0f172a; color: #94a3b8; border: 1px solid #1e293b; padding: 8px 14px; border-radius: 12px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .btn-filter.active { background: #eab308; color: #0f172a; font-weight: 900; }
+
+    .logo-setting-flex { display: flex; gap: 20px; align-items: center; background: #0f172a; border: 1px solid #1e293d; padding: 16px; border-radius: 14px; margin-top: 10px; }
+    .logo-preview-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .preview-label { font-size: 10px; color: #64748b; font-weight: bold; }
+    .preview-img { width: 60px; height: 60px; object-fit: contain; border-radius: 50%; border: 2px solid #dc2626; background: #fff; padding: 2px; }
+    .preview-default { width: 60px; height: 60px; background: #1e293b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 2px solid #eab308; }
+    .logo-action-box { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .btn-upload-file { background: #22c55e; color: #0f172a; text-align: center; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 900; cursor: pointer; display: inline-block; }
+    .btn-reset-logo { background: #1e293b; color: #94a3b8; border: none; padding: 8px; border-radius: 8px; font-size: 11px; cursor: pointer; }
+
+    .rank-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+    .rank-item { background: #0f172a; border: 1px solid #1e293b; padding: 14px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .rank-badge { font-size: 18px; font-weight: 900; min-width: 36px; text-align: center; }
+    .rank-info { flex: 1; margin-left: 10px; }
+    .rank-nama { font-size: 14px; font-weight: 800; color: #fff; }
+    .rank-meta { font-size: 10px; color: #64748b; }
+    .km-val { font-size: 20px; font-weight: 900; color: #22c55e; }
+    .km-unit { font-size: 11px; color: #64748b; font-weight: 700; }
+    .top-1 { border-color: rgba(234, 179, 8, 0.6); background: rgba(234, 179, 8, 0.05); }
+    .top-2 { border-color: rgba(148, 163, 184, 0.4); }
+    .top-3 { border-color: rgba(220, 38, 38, 0.4); }
+
+    .user-table-wrapper { overflow-x: auto; }
+    .user-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    .user-table th, .user-table td { padding: 12px; border-bottom: 1px solid #1e293b; }
+    .user-table th { color: #64748b; font-size: 11px; text-transform: uppercase; }
+    .role-pill { font-size: 9px; font-weight: 900; padding: 3px 8px; border-radius: 6px; }
+    .role-pill.atlet { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .role-pill.coach { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+    .role-pill.admin { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .action-btns { display: flex; gap: 6px; }
+    .btn-role { background: #1e293b; color: #94a3b8; border: none; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; }
+    .btn-del-user { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: none; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: bold; }
+    .text-muted { color: #64748b; font-size: 11px; font-style: italic; }
+
+    .login-box { background: #161e2e; border: 1px solid #2d3748; border-top: 4px solid #dc2626; border-radius: 20px; padding: 30px; max-width: 400px; margin: 30px auto; width: 100%; box-sizing: border-box; }
+    .login-title { margin-top: 0; text-align: center; font-weight: 900; }
+    .login-desc { font-size: 12px; color: #64748b; text-align: center; margin-bottom: 20px; }
+    .error-msg { color: #ef4444; font-size: 12px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+    .success-msg { color: #22c55e; font-size: 12px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+
+    .switch-box { text-align: center; font-size: 12px; color: #64748b; margin-top: 16px; }
+    .btn-link { background: none; border: none; color: #22c55e; font-weight: 800; cursor: pointer; text-decoration: underline; font-size: 12px; }
+
+    .secret-box { background: rgba(234, 179, 8, 0.05); border: 1px dashed rgba(234, 179, 8, 0.4); padding: 10px; border-radius: 10px; }
+    .secret-label { color: #eab308 !important; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .stat-card { background: #161e2e; border: 1px solid #2d3748; border-radius: 16px; padding: 14px; }
+    .stat-label { font-size: 10px; color: #64748b; font-weight: 800; }
+    .stat-value { font-size: 24px; font-weight: 900; color: #fff; margin-top: 4px; }
+    .unit { font-size: 12px; color: #64748b; }
+    .stat-status { font-size: 18px; font-weight: 900; margin-top: 4px; }
+
+    .text-red { color: #ef4444; }
+    .text-yellow { color: #eab308; }
+    .text-green { color: #22c55e; }
+
+    .main-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; }
+    @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
+
+    .card { background: #161e2e; border: 1px solid #2d3748; border-radius: 20px; padding: 20px; }
+    .card-title { font-size: 15px; font-weight: 800; margin-top: 0; margin-bottom: 16px; }
+
+    .form-body { display: flex; flex-direction: column; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+    input, select { background: #0f172a; border: 1px solid #1e293b; color: #fff; padding: 10px; border-radius: 10px; font-size: 13px; outline: none; }
+    input:focus, select:focus { border-color: #dc2626; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .slider-box { background: #0f172a; border: 1px solid #1e293b; padding: 10px; border-radius: 10px; }
+    .slider-header { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 700; }
+    .rpe-badge { background: rgba(220, 38, 38, 0.2); color: #ef4444; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+
+    .btn-submit { background: #dc2626; color: #ffffff; border: none; font-weight: 900; padding: 12px; border-radius: 10px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); }
+    .btn-submit:hover { background: #b91c1c; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .feed-header { display: flex; justify-content: space-between; align-items: center; }
+    .count-badge { font-size: 10px; background: #1e293b; padding: 4px 8px; border-radius: 8px; color: #94a3b8; font-weight: 800; }
+    .empty-msg { font-size: 12px; color: #64748b; text-align: center; padding: 20px; }
+    .feed-list { display: flex; flex-direction: column; gap: 10px; }
+    .feed-item { background: #0f172a; border: 1px solid #1e293b; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .item-top { display: flex; justify-content: space-between; align-items: center; }
+    .top-right { display: flex; align-items: center; gap: 8px; }
+    .atlet-tag { background: #dc2626; color: #ffffff; padding: 2px 6px; border-radius: 6px; font-size: 10px; margin-right: 6px; font-weight: 800; }
+    .user-name { font-size: 13px; font-weight: 800; }
+    .user-meta { font-size: 10px; color: #64748b; }
+    .pace-tag { background: #161e2e; border: 1px solid #2d3748; color: #22c55e; font-family: monospace; font-size: 11px; font-weight: 700; padding: 3px 6px; border-radius: 6px; }
+    .btn-del { background: transparent; border: none; cursor: pointer; font-size: 12px; opacity: 0.7; }
+
+    .item-stats { display: grid; grid-template-columns: repeat(3, 1fr); background: #161e2e; padding: 6px; border-radius: 8px; text-align: center; }
+    .lbl { font-size: 8px; color: #64748b; font-weight: 800; display: block; }
+    .val { font-size: 11px; font-weight: 800; }
+    .load-val { color: #eab308; }
+    .load-high { color: #ef4444; font-weight: 900; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="app-container">
+      <div class="wrapper">
+        
+        <!-- HEADER SYSTEM -->
+        <header class="header">
+          <div class="brand">
+            <div class="logo-wrapper">
+              <img v-if="customLogo" :src="customLogo" alt="Logo" class="custom-logo-img" />
+              <div v-else class="logo-box">🗡️</div>
+            </div>
+            <div>
+              <h1 class="logo-title">PESILAT <span class="highlight">FATANI KEDAH</span></h1>
+              <p class="logo-sub">SISTEM PEMANTAUAN LARIAN & KECERGASAN ATLET</p>
+            </div>
+          </div>
+          <div v-if="currentUser" class="user-session">
+            <span :class="['user-badge', currentUser.role === 'admin' ? 'admin-badge' : (currentUser.role === 'coach' ? 'coach-badge' : 'atlet-badge')]">
+              {{ currentUser.role === 'admin' ? '⚙️ ADMIN' : (currentUser.role === 'coach' ? '👑 COACH' : '🥋 PESILAT') }} : {{ currentUser.name }}
+            </span>
+            <button @click="handleLogout" class="btn-logout">LOGOUT</button>
+          </div>
+        </header>
+
+        <!-- SCREEN 1: LOGIN / REGISTER -->
+        <div v-if="!currentUser" class="login-box">
+          <div v-if="!isRegisterMode">
+            <h2 class="login-title">🔐 Log Masuk Pesilat</h2>
+            <p class="login-desc">Sila masukkan ID & Kata Laluan anda.</p>
+
+            <form @submit.prevent="handleLogin" class="form-body">
+              <div class="form-group">
+                <label>Username</label>
+                <input v-model="inputUsername" type="text" placeholder="Masukkan Username" required />
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <input v-model="inputPassword" type="password" placeholder="••••••••" required />
+              </div>
+
+              <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
+              <div v-if="successMessage" class="success-msg">{{ successMessage }}</div>
+
+              <button type="submit" class="btn-submit">MASUK DASHBOARD 🚀</button>
+            </form>
+
+            <div class="switch-box">
+              Belum ada akaun? 
+              <button @click="isRegisterMode = true; errorMessage = ''; successMessage = '';" class="btn-link">Daftar Akaun Baru</button>
+            </div>
+          </div>
+
+          <div v-else>
+            <h2 class="login-title">📝 Daftar Akaun Baru</h2>
+            <p class="login-desc">Pilih peranan dan isi maklumat pendaftaran.</p>
+
+            <form @submit.prevent="handleRegister" class="form-body">
+              <div class="form-group">
+                <label>Peranan / Role Akaun</label>
+                <select v-model="inputRole">
+                  <option value="atlet">🥋 Pesilat (Atlet)</option>
+                  <option value="coach">👑 Jurulatih (Coach)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Nama Penuh</label>
+                <input v-model="inputName" type="text" :placeholder="inputRole === 'coach' ? 'Cth: Coach Zainal' : 'Cth: Muhammad Iman'" required />
+              </div>
+
+              <div class="form-group">
+                <label>Username (Untuk Login)</label>
+                <input v-model="inputUsername" type="text" placeholder="Cth: coach_zainal" required />
+              </div>
+
+              <div class="form-group">
+                <label>Password</label>
+                <input v-model="inputPassword" type="password" placeholder="Cipta Password" required />
+              </div>
+
+              <div v-if="inputRole === 'coach'" class="form-group secret-box">
+                <label class="secret-label">🔒 Kunci Rahsia Pendaftaran Coach</label>
+                <input v-model="inputCoachKey" type="password" placeholder="Masukkan Kunci Rahsia" required />
+              </div>
+
+              <div v-if="errorMessage" class="error-msg">{{ errorMessage }}</div>
+
+              <button type="submit" class="btn-submit">
+                DAFTAR AKAUN {{ inputRole === 'coach' ? 'COACH' : 'PESILAT' }} 🚀
+              </button>
+            </form>
+
+            <div class="switch-box">
+              Sudah ada akaun? 
+              <button @click="isRegisterMode = false; errorMessage = ''; successMessage = '';" class="btn-link">Log Masuk</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCREEN 2: DASHBOARD MAIN -->
+        <div v-else class="dashboard-content">
+          
+          <!-- NAVIGATION TAB UTAMA -->
+          <div class="main-tab-nav">
+            <button @click="activeMainTab = 'LOGS'" :class="['tab-btn', activeMainTab === 'LOGS' ? 'active' : '']">
+              🏃‍♂️ Log Larian
+            </button>
+            <button @click="activeMainTab = 'LEADERBOARD'" :class="['tab-btn', activeMainTab === 'LEADERBOARD' ? 'active' : '']">
+              🏆 Carta Ranking Mingguan
+            </button>
+            <button v-if="currentUser.role === 'admin'" @click="activeMainTab = 'USERS'" :class="['tab-btn', activeMainTab === 'USERS' ? 'active' : '']">
+              👥 Pengurusan Akaun & Logo
+            </button>
+          </div>
+
+          <!-- TARGET INDIVIDU MINGGUAN BAR (6.0 KM TARGET) -->
+          <div v-if="currentUser.role === 'atlet'" class="card target-card">
+            <div class="target-header">
+              <div>
+                <h3 class="target-title">🎯 Sasaran Larian Minggu Ini: {{ userWeeklyTotalKm.toFixed(1) }} / {{ INDIVIDUAL_TARGET_KM }} KM</h3>
+                <p class="target-sub" v-if="userWeeklyTotalKm >= INDIVIDUAL_TARGET_KM">🎉 Tahniah! Anda telah melengkapkan sasaran 6KM minggu ini!</p>
+                <p class="target-sub" v-else>Cukupkan lagi {{ (INDIVIDUAL_TARGET_KM - userWeeklyTotalKm).toFixed(1) }} KM sebelum Isnin depan.</p>
+              </div>
+              <span class="target-pct">{{ userTargetPercentage }}%</span>
+            </div>
+            
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" :style="{ width: userTargetPercentage + '%' }"></div>
+            </div>
+
+            <div class="badge-container mb-0" v-if="getUserBadges(currentUser.username).length > 0">
+              <span v-for="(b, i) in getUserBadges(currentUser.username)" :key="i" :class="['achievement-badge', b.cls]">
+                {{ b.name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- PANEL COACH / ADMIN -->
+          <div v-if="(currentUser.role === 'coach' || currentUser.role === 'admin') && activeMainTab === 'LOGS'" class="coach-panel">
+            <div class="coach-header-row">
+              <div>
+                <h3>📢 {{ currentUser.role === 'admin' ? 'PANEL PENGURUSAN ADMIN' : 'PANEL PEMANTAUAN COACH' }}</h3>
+                <span class="sub-text">Semak data atau muat turun rekod rasmi:</span>
+              </div>
+              <button @click="exportToCSV" class="btn-export">📥 Eksport Excel (CSV)</button>
+            </div>
+
+            <div v-if="redFlagAlerts.length > 0" class="red-flag-box">
+              <h4>🚨 AMARAN RED FLAG: BEBAN TINGGI (>250 PTS)</h4>
+              <ul>
+                <li v-for="alert in redFlagAlerts" :key="alert.id">
+                  <b>{{ alert.nama }}</b> — Load: <span class="text-danger">{{ alert.load }} PTS</span> ({{ alert.jenis }} • {{ alert.tarikh }})
+                </li>
+              </ul>
+            </div>
+            
+            <div class="filter-group">
+              <button @click="selectedFilterUser = 'ALL'" :class="['btn-filter', selectedFilterUser === 'ALL' ? 'active' : '']">
+                🌐 Semua Pesilat
+              </button>
+              <button v-for="atlet in atletListOnly" :key="atlet.username" @click="selectedFilterUser = atlet.username" :class="['btn-filter', selectedFilterUser === atlet.username ? 'active' : '']">
+                🏃‍♂️ {{ atlet.name }}
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 1: CARTA RANKING MINGGUAN (LEADERBOARD) -->
+          <div v-if="activeMainTab === 'LEADERBOARD'" class="card leaderboard-card">
+            <h2 class="card-title">🏆 Ranking Larian Minggu Ini (Auto-Reset Isnin)</h2>
+            <p class="sub-text mb-4">Peringkat kedudukan atlet bagi minggu semasa ({{ currentWeekId }}).</p>
+
+            <div v-if="leaderboardData.length === 0" class="empty-msg">Belum ada larian untuk minggu ini. Muat naik larian pertama anda!</div>
+            
+            <div v-else class="rank-list">
+              <div v-for="(item, idx) in leaderboardData" :key="idx" :class="['rank-item', idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : ''))]">
+                <div class="rank-badge">
+                  {{ idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`)) }}
+                </div>
+                <div class="rank-info">
+                  <div class="rank-nama">
+                    {{ item.nama }}
+                    <span v-if="item.totalJarak >= INDIVIDUAL_TARGET_KM" class="completed-tag">✓ 6KM Cukup</span>
+                  </div>
+                  <div class="rank-meta">{{ item.totalSesi }} Sesi Larian Minggu Ini</div>
+                </div>
+                <div class="rank-stat">
+                  <span class="km-val">{{ item.totalJarak.toFixed(1) }}</span> <span class="km-unit">KM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: PENGURUSAN AKAUN & MUAT NAIK LOGO (ADMIN ONLY) -->
+          <div v-else-if="activeMainTab === 'USERS' && currentUser.role === 'admin'" class="space-y-gap">
+            
+            <div class="card logo-upload-card">
+              <h2 class="card-title">🖼️ Pengurusan Logo Muka Depan</h2>
+              <p class="info-text mb-3">Muat naik logo pasukan anda (.png atau .jpeg).</p>
+
+              <div class="logo-setting-flex">
+                <div class="logo-preview-box">
+                  <span class="preview-label">Pratonton Logo:</span>
+                  <img v-if="customLogo" :src="customLogo" class="preview-img" alt="Pratonton Logo" />
+                  <div v-else class="preview-default">🗡️</div>
+                </div>
+
+                <div class="logo-action-box">
+                  <label class="btn-upload-file">
+                    📁 Pilih Fail Gambar (PNG/JPEG)
+                    <input type="file" accept="image/png, image/jpeg, image/jpg" @change="handleLogoUpload" hidden />
+                  </label>
+                  <button v-if="customLogo" @click="resetLogo" class="btn-reset-logo">
+                    🔄 Reset Logo Asal
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card user-mgmt-card">
+              <h2 class="card-title">👥 Senarai Kesemua Akaun Pengguna</h2>
+              <div class="user-table-wrapper">
+                <table class="user-table">
+                  <thead>
+                    <tr>
+                      <th>Nama</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="usr in usersList" :key="usr.username">
+                      <td><b>{{ usr.name }}</b></td>
+                      <td><code>{{ usr.username }}</code></td>
+                      <td><span :class="['role-pill', usr.role]">{{ usr.role.toUpperCase() }}</span></td>
+                      <td>
+                        <div class="action-btns" v-if="usr.role !== 'admin'">
+                          <button @click="toggleRole(usr.username)" class="btn-role">Tukar ke {{ usr.role === 'atlet' ? 'Coach' : 'Atlet' }}</button>
+                          <button @click="deleteUser(usr.username)" class="btn-del-user">🗑️ Padam</button>
+                        </div>
+                        <span v-else class="text-muted">Master Admin</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TAB 3: LOG LARIAN & BORANG (DEFAULT VIEW) -->
+          <div v-else-if="activeMainTab === 'LOGS'" class="space-y-gap">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <span class="stat-label">{{ currentUser.role !== 'atlet' ? 'JUMLAH JARAK (DISEMAK)' : 'TOTAL JARAK (ANDA)' }}</span>
+                <div class="stat-value text-red">{{ totalKmDisplay }} <span class="unit">KM</span></div>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">MASA LARIAN</span>
+                <div class="stat-value text-yellow">{{ totalMinDisplay }} <span class="unit">MIN</span></div>
+              </div>
+              <div class="stat-card full-mobile">
+                <span class="stat-label">JUMLAH SESI</span>
+                <div class="stat-status text-green">{{ filteredLogs.length }} SESI 🏃‍♂️</div>
+              </div>
+            </div>
+
+            <div class="main-grid">
+              
+              <!-- BORANG INPUT LARIAN DENGAN RPE EXPLANATION -->
+              <div v-if="currentUser.role === 'atlet' || currentUser.role === 'coach'" class="card form-card">
+                <h2 class="card-title">📸 Imbas Proof & Tambah Larian</h2>
+
+                <form @submit.prevent="handleSubmit" class="form-body">
+                  
+                  <div class="form-group">
+                    <label>Aplikasi / Jam Digunakan</label>
+                    <select v-model="formData.tracker" class="tracker-select">
+                      <option value="Strava">🟧 Strava App</option>
+                      <option value="Garmin">⬛ Garmin Connect</option>
+                      <option value="Apple Watch">🍏 Apple Fitness / Watch</option>
+                      <option value="Nike Run">✔️ Nike Run Club (NRC)</option>
+                      <option value="Treadmill">🏃 Treadmill / Jam Lain</option>
+                    </select>
+                  </div>
+
+                  <div class="upload-ocr-box">
+                    <label class="ocr-label">1. Upload Screenshot Bukti Larian</label>
+                    <label class="btn-ocr-file">
+                      📷 {{ isScanning ? 'Sedang Imbas Gambar...' : 'Pilih Gambar Screenshot' }}
+                      <input type="file" accept="image/*" @change="handleProofUpload" :disabled="isScanning" hidden />
+                    </label>
+
+                    <div v-if="scanStatus" class="scan-status-text">
+                      <span v-if="isScanning">⏳</span> {{ scanStatus }}
+                    </div>
+
+                    <div v-if="proofImage" class="proof-preview-wrapper">
+                      <img :src="proofImage" alt="Bukti Larian" class="proof-img-preview" />
+                    </div>
+                  </div>
+
+                  <div class="row-2">
+                    <div class="form-group">
+                      <label>Jarak (KM) <span class="lock-tag">🔒 Auto</span></label>
+                      <input v-model="formData.jarak" type="number" step="0.01" placeholder="0.00" readonly class="read-only-input" required />
+                    </div>
+                    <div class="form-group">
+                      <label>Masa (Min) <span class="lock-tag">🔒 Auto</span></label>
+                      <input v-model="formData.masa" type="number" step="0.1" placeholder="0.0" readonly class="read-only-input" required />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Jenis Larian</label>
+                    <select v-model="formData.jenis">
+                      <option>Base Run (Zone 2)</option>
+                      <option>Interval / HIIT (Sprint)</option>
+                      <option>Tempo Run (Konsisten)</option>
+                      <option>Ujian Kecergasan (Beep Test)</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group slider-box">
+                    <div class="slider-header">
+                      <span>Tahap Penat (Skala RPE 1–10)</span>
+                      <span class="rpe-badge">Skala {{ formData.rpe }} / 10</span>
+                    </div>
+                    <input v-model="formData.rpe" type="range" min="1" max="10" />
+                    
+                    <div class="rpe-desc-box">
+                      💡 <b>Maksud Skala {{ formData.rpe }}:</b><br/>
+                      <span class="rpe-desc-text">{{ getRpeDescription(formData.rpe) }}</span>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn-submit" :disabled="!formData.jarak || isScanning">
+                    HANTAR & SIMPAN REKOD 🚀
+                  </button>
+                </form>
+              </div>
+
+              <!-- FEED REKOD LARIAN + GAMBAR BUKTI + BADGE TRACKER -->
+              <div class="card feed-card">
+                <div class="feed-header">
+                  <h2 class="card-title">📜 {{ currentUser.role !== 'atlet' ? 'Rekod Larian Pesilat' : 'Rekod Saya / Atlet' }}</h2>
+                  <span class="count-badge">{{ filteredLogs.length }} REKOD</span>
+                </div>
+
+                <div v-if="filteredLogs.length === 0" class="empty-msg">Tiada rekod larian dijumpai.</div>
+
+                <div v-else class="feed-list">
+                  <div v-for="item in filteredLogs" :key="item.id" class="feed-item">
+                    <div class="item-top">
+                      <div>
+                        <div class="user-name">
+                          <span v-if="currentUser.role !== 'atlet'" class="atlet-tag">{{ item.nama }}</span>
+                          
+                          <span :class="['tracker-tag', item.tracker]">
+                            {{ item.tracker === 'Strava' ? '🟧 Strava' : (item.tracker === 'Garmin' ? '⬛ Garmin' : '⌚ ' + (item.tracker || 'Strava')) }}
+                          </span>
+
+                          {{ item.jenis }}
+                        </div>
+                        <div class="user-meta">{{ item.tarikh }}</div>
+                      </div>
+                      <div class="top-right">
+                        <span class="pace-tag">{{ item.pace }} /km</span>
+                        <button v-if="currentUser.role !== 'atlet'" @click="deleteLog(item.id)" class="btn-del" title="Padam Rekod">🗑️</button>
+                      </div>
+                    </div>
+
+                    <div class="item-stats">
+                      <div>
+                        <span class="lbl">JARAK</span>
+                        <span class="val text-red">{{ item.jarak }} KM</span>
+                      </div>
+                      <div>
+                        <span class="lbl">MASA</span>
+                        <span class="val text-yellow">{{ item.masa }} MIN</span>
+                      </div>
+                      <div>
+                        <span class="lbl">BEBAN</span>
+                        <span :class="['val', item.load > 250 ? 'load-high' : 'load-val']">{{ item.load }} PTS</span>
+                      </div>
+                    </div>
+
+                    <div v-if="item.proofImg" class="proof-feed-box">
+                      <span class="proof-label">🔍 Gambar Bukti Screenshot:</span>
+                      <a :href="item.proofImg" target="_blank">
+                        <img :src="item.proofImg" alt="Bukti Larian" class="proof-feed-img" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP SCRIPT LOGIC -->
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+      setup() {
+        const COACH_SECRET_KEY = 'coachsilat123'
+        const INDIVIDUAL_TARGET_KM = 6.0
+
+        const usersList = ref([])
+        const logs = ref([])
+        const customLogo = ref(null)
+
+        const isRegisterMode = ref(false)
+        const inputName = ref('')
+        const inputUsername = ref('')
+        const inputPassword = ref('')
+        const inputRole = ref('atlet')
+        const inputCoachKey = ref('')
+
+        const currentUser = ref(null)
+        const errorMessage = ref('')
+        const successMessage = ref('')
+
+        const selectedFilterUser = ref('ALL')
+        const activeMainTab = ref('LOGS')
+
+        const isScanning = ref(false)
+        const scanStatus = ref('')
+        const proofImage = ref(null)
+
+        const getWeekIdentifier = (d = new Date()) => {
+          const date = new Date(d.getTime())
+          date.setHours(0, 0, 0, 0)
+          date.setDate(date.getDate() + 4 - (date.getDay() || 7))
+          const yearStart = new Date(date.getFullYear(), 0, 1)
+          const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7)
+          return `${date.getFullYear()}-W${weekNo < 10 ? '0' : ''}${weekNo}`
+        }
+
+        onMounted(() => {
+          const savedUsers = localStorage.getItem('silat_run_users')
+          if (savedUsers) {
+            usersList.value = JSON.parse(savedUsers)
+          } else {
+            usersList.value = [{ username: 'admin', password: 'admin123', name: 'Super Admin', role: 'admin' }]
+            localStorage.setItem('silat_run_users', JSON.stringify(usersList.value))
+          }
+
+          const savedLogs = localStorage.getItem('silat_run_logs')
+          if (savedLogs) logs.value = JSON.parse(savedLogs)
+
+          const savedLogo = localStorage.getItem('silat_run_logo')
+          if (savedLogo) customLogo.value = savedLogo
+        })
+
+        const handleLogin = () => {
+          errorMessage.value = ''
+          successMessage.value = ''
+          const found = usersList.value.find(u => u.username.toLowerCase() === inputUsername.value.trim().toLowerCase() && u.password === inputPassword.value)
+          if (found) {
+            currentUser.value = found
+            inputPassword.value = ''
+          } else {
+            errorMessage.value = 'Username atau Password salah!'
+          }
+        }
+
+        const handleRegister = () => {
+          errorMessage.value = ''
+          successMessage.value = ''
+          const exists = usersList.value.some(u => u.username.toLowerCase() === inputUsername.value.trim().toLowerCase())
+          if (exists) { errorMessage.value = 'Username ini sudah digunakan!'; return }
+          if (inputRole.value === 'coach' && inputCoachKey.value !== COACH_SECRET_KEY) { errorMessage.value = 'Kunci Rahsia Coach salah!'; return }
+
+          const newUser = { username: inputUsername.value.trim().toLowerCase(), password: inputPassword.value, name: inputName.value.trim(), role: inputRole.value }
+          usersList.value.push(newUser)
+          localStorage.setItem('silat_run_users', JSON.stringify(usersList.value))
+
+          successMessage.value = `Pendaftaran berjaya! Sila log masuk.`
+          isRegisterMode.value = false
+          inputName.value = ''; inputUsername.value = ''; inputPassword.value = ''; inputRole.value = 'atlet'; inputCoachKey.value = ''
+        }
+
+        const handleLogout = () => {
+          currentUser.value = null
+          selectedFilterUser.value = 'ALL'
+          activeMainTab.value = 'LOGS'
+        }
+
+        const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, masa: null, rpe: 5 })
+
+        const handleProofUpload = async (event) => {
+          const file = event.target.files[0]
+          if (!file) return
+
+          const reader = new FileReader()
+          reader.onload = (e) => { proofImage.value = e.target.result }
+          reader.readAsDataURL(file)
+
+          isScanning.value = true
+          scanStatus.value = 'Mengekstrak data larian dari gambar...'
+
+          try {
+            const ret = await Tesseract.recognize(file, 'eng')
+            const text = ret.data.text
+
+            const kmMatch = text.match(/(\d+[.,]\d{1,2})\s*(km|kilometer)?/i)
+            const timeMatch = text.match(/(\d{1,2}):(\d{2})/) || text.match(/(\d+)\s*(min|mins)/i)
+
+            if (kmMatch) formData.value.jarak = parseFloat(kmMatch[1].replace(',', '.'))
+            if (timeMatch) {
+              if (timeMatch[2] && !isNaN(timeMatch[2]) && timeMatch[1]) {
+                formData.value.masa = parseFloat((parseInt(timeMatch[1]) + parseInt(timeMatch[2]) / 60).toFixed(1))
+              } else {
+                formData.value.masa = parseFloat(timeMatch[1])
+              }
+            }
+
+            if (!kmMatch && !timeMatch) alert("Gambar kabur atau nombor tidak dikesan. Sila guna screenshot yang lebih jelas.")
+            else scanStatus.value = 'Data KM & Masa berjaya diekstrak!'
+          } catch (err) {
+            alert("Gagal membaca gambar. Sila cuba lagi.")
+          } finally {
+            isScanning.value = false
+          }
+        }
+
+        const calculatePace = (j, m) => {
+          if (!j || !m || j <= 0) return '0:00'
+          const secPerKm = (parseFloat(m) * 60) / parseFloat(j)
+          const min = Math.floor(secPerKm / 60)
+          const sec = Math.round(secPerKm % 60)
+          return `${min}:${sec < 10 ? '0' : ''}${sec}`
+        }
+
+        const handleSubmit = () => {
+          if (!proofImage.value || !formData.value.jarak || !formData.value.masa) {
+            alert("Sila muat naik gambar bukti larian terlebih dahulu!")
+            return
+          }
+          const pace = calculatePace(formData.value.jarak, formData.value.masa)
+          const load = Math.round(parseFloat(formData.value.masa) * parseInt(formData.value.rpe))
+
+          const newLog = {
+            id: Date.now(),
+            username: currentUser.value.username,
+            nama: currentUser.value.name,
+            tracker: formData.value.tracker,
+            jenis: formData.value.jenis,
+            jarak: parseFloat(formData.value.jarak),
+            masa: parseFloat(formData.value.masa),
+            rpe: parseInt(formData.value.rpe),
+            pace,
+            load,
+            proofImg: proofImage.value,
+            weekId: getWeekIdentifier(),
+            tarikh: new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })
+          }
+
+          logs.value.unshift(newLog)
+          localStorage.setItem('silat_run_logs', JSON.stringify(logs.value))
+
+          formData.value.jarak = null; formData.value.masa = null; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
+        }
+
+        const handleLogoUpload = (event) => {
+          const file = event.target.files[0]
+          if (!file) return
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            customLogo.value = e.target.result
+            localStorage.setItem('silat_run_logo', e.target.result)
+          }
+          reader.readAsDataURL(file)
+        }
+
+        const resetLogo = () => { customLogo.value = null; localStorage.removeItem('silat_run_logo') }
+        const deleteUser = (uname) => { logs.value = logs.value.filter(l => l.username !== uname); usersList.value = usersList.value.filter(u => u.username !== uname); localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)); }
+        const toggleRole = (uname) => { const u = usersList.value.find(x => x.username === uname); if(u) { u.role = u.role === 'atlet' ? 'coach' : 'atlet'; localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); } }
+        const deleteLog = (id) => { logs.value = logs.value.filter(l => l.id !== id); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)) }
+
+        const exportToCSV = () => {
+          let csv = "data:text/csv;charset=utf-8,Tarikh,Nama,Username,Tracker,Jenis,Jarak (KM),Masa (Min),Pace,RPE,Load\n"
+          logs.value.forEach(r => { csv += `${r.tarikh},${r.nama},${r.username},${r.tracker},${r.jenis},${r.jarak},${r.masa},${r.pace},${r.rpe},${r.load}\n` })
+          const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `Rekod_Larian.csv`; link.click()
+        }
+
+        const filteredLogs = computed(() => {
+          if (!currentUser.value) return []
+          const r = currentUser.value.role, u = currentUser.value.username
+          if (r === 'admin') return selectedFilterUser.value === 'ALL' ? logs.value : logs.value.filter(i => i.username === selectedFilterUser.value)
+          if (r === 'coach') {
+            const valid = usersList.value.filter(x => x.role === 'atlet' || x.username === u).map(x => x.username)
+            const clogs = logs.value.filter(i => valid.includes(i.username))
+            return selectedFilterUser.value === 'ALL' ? clogs : clogs.filter(i => i.username === selectedFilterUser.value)
+          }
+          if (r === 'atlet') {
+            const valid = usersList.value.filter(x => x.role === 'atlet').map(x => x.username)
+            const alogs = logs.value.filter(i => valid.includes(i.username))
+            return selectedFilterUser.value === 'ALL' ? alogs : alogs.filter(i => i.username === selectedFilterUser.value)
+          }
+          return []
+        })
+
+        const currentWeekId = computed(() => getWeekIdentifier())
+        const userWeeklyTotalKm = computed(() => currentUser.value ? logs.value.filter(l => l.username === currentUser.value.username && (l.weekId === currentWeekId.value || !l.weekId)).reduce((a, b) => a + (b.jarak || 0), 0) : 0)
+        const totalKmDisplay = computed(() => filteredLogs.value.reduce((a, b) => a + (b.jarak || 0), 0).toFixed(1))
+        const totalMinDisplay = computed(() => filteredLogs.value.reduce((a, b) => a + (b.masa || 0), 0).toFixed(0))
+        const userTargetPercentage = computed(() => Math.min((userWeeklyTotalKm.value / INDIVIDUAL_TARGET_KM) * 100, 100).toFixed(0))
+        const atletListOnly = computed(() => usersList.value.filter(u => u.role === 'atlet'))
+
+        const leaderboardData = computed(() => {
+          const map = {}
+          const atletNames = usersList.value.filter(u => u.role === 'atlet').map(u => u.username)
+          logs.value.filter(l => l.weekId === currentWeekId.value || !l.weekId).forEach(l => {
+            if (atletNames.includes(l.username)) {
+              if (!map[l.username]) map[l.username] = { nama: l.nama, totalJarak: 0, totalSesi: 0 }
+              map[l.username].totalJarak += l.jarak || 0
+              map[l.username].totalSesi += 1
+            }
+          })
+          return Object.values(map).sort((a, b) => b.totalJarak - a.totalJarak)
+        })
+
+        const redFlagAlerts = computed(() => logs.value.filter(l => l.load > 250))
+
+        const getUserBadges = (uname) => {
+          const wlogs = logs.value.filter(l => l.username === uname && (l.weekId === currentWeekId.value || !l.weekId))
+          const km = wlogs.reduce((a, b) => a + (b.jarak || 0), 0)
+          const b = []
+          if (km >= INDIVIDUAL_TARGET_KM) b.push({ name: '🎯 6KM Minggu Ni Cukup!', cls: 'bg-gold' })
+          if (wlogs.some(l => l.jarak >= 5.0)) b.push({ name: '🏃‍♂️ 5KM Finisher', cls: 'bg-green' })
+          if (wlogs.some(l => parseInt(l.pace.split(':')[0]) < 5)) b.push({ name: '⚡ Speed Demon', cls: 'bg-red' })
+          return b
+        }
+
+        const getRpeDescription = (rpe) => {
+          const r = parseInt(rpe)
+          if (r <= 3) return '🟢 Sangat Santai (Boleh bersembang tanpa mengah)'
+          if (r <= 6) return '🟡 Sederhana (Nadi mula laju, nafas teratur)'
+          if (r <= 8) return '🟠 Penat / Heavy (Nafas tercungap, bercakap sepatah-sepatah)'
+          return '🔴 Maksimum / Terlalu Penat (Semput habis, tahap sprint/muntah)'
+        }
+
+        return {
+          INDIVIDUAL_TARGET_KM, usersList, logs, customLogo, isRegisterMode, inputName, inputUsername, inputPassword, inputRole, inputCoachKey,
+          currentUser, errorMessage, successMessage, selectedFilterUser, activeMainTab, isScanning, scanStatus, proofImage, formData,
+          handleLogin, handleRegister, handleLogout, handleProofUpload, handleSubmit, handleLogoUpload, resetLogo, deleteUser, toggleRole, deleteLog,
+          exportToCSV, filteredLogs, currentWeekId, userWeeklyTotalKm, totalKmDisplay, totalMinDisplay, userTargetPercentage, atletListOnly,
+          leaderboardData, redFlagAlerts, getUserBadges, getRpeDescription
+        }
+      }
+    }).mount('#app')
+  </script>
+</body>
 </html>
