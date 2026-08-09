@@ -616,7 +616,9 @@
 
         const usersList = ref([])
         const logs = ref([])
-        const customLogo = ref(null)
+        
+        // AUTO-LOAD LOGO DARI FAIL GITHUB ('./LOGO FATANI.png')
+        const customLogo = ref('./LOGO%20FATANI.png')
 
         const isRegisterMode = ref(false)
         const inputName = ref('')
@@ -782,7 +784,7 @@
           reader.readAsDataURL(file)
         }
 
-        const resetLogo = () => { customLogo.value = null; localStorage.removeItem('silat_run_logo') }
+        const resetLogo = () => { customLogo.value = './LOGO%20FATANI.png'; localStorage.removeItem('silat_run_logo') }
         const deleteUser = (uname) => { logs.value = logs.value.filter(l => l.username !== uname); usersList.value = usersList.value.filter(u => u.username !== uname); localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)); }
         const toggleRole = (uname) => { const u = usersList.value.find(x => x.username === uname); if(u) { u.role = u.role === 'atlet' ? 'coach' : 'atlet'; localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); } }
         const deleteLog = (id) => { logs.value = logs.value.filter(l => l.id !== id); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)) }
