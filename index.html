@@ -71,11 +71,11 @@
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
     .stat-card { background: #161e2e; border: 1px solid #2d3748; border-radius: 14px; padding: 10px; text-align: center; }
     .stat-label { font-size: 8px; color: #64748b; font-weight: 800; display: block; }
-    .stat-value { font-size: 18px; font-weight: 900; color: #fff; margin-top: 2px; }
-    .unit { font-size: 10px; color: #64748b; }
+    .stat-value { font-size: 16px; font-weight: 900; color: #fff; margin-top: 2px; }
+    .unit { font-size: 9px; color: #64748b; }
     .stat-status { font-size: 13px; font-weight: 900; margin-top: 4px; }
 
-    /* MAIN GRID LAYOUT (RESPONSIVE SINGLE COLUMN ON MOBILE) */
+    /* MAIN GRID LAYOUT */
     .main-grid { display: flex; flex-direction: column; gap: 14px; width: 100%; }
 
     .card { background: #161e2e; border: 1px solid #2d3748; border-radius: 16px; padding: 14px; width: 100%; box-sizing: border-box; }
@@ -421,7 +421,7 @@
               </div>
               <div class="stat-card">
                 <span class="stat-label">MASA LARIAN</span>
-                <div class="stat-value text-yellow">{{ totalMinDisplay }} <span class="unit">MIN</span></div>
+                <div class="stat-value text-yellow">{{ totalMinDisplay }}</div>
               </div>
               <div class="stat-card">
                 <span class="stat-label">JUMLAH SESI</span>
@@ -469,8 +469,8 @@
                       <input v-model="formData.jarak" type="number" step="0.01" placeholder="0.00" readonly class="read-only-input" required />
                     </div>
                     <div class="form-group">
-                      <label>Masa (Min) <span class="lock-tag">🔒 Auto</span></label>
-                      <input v-model="formData.masa" type="number" step="0.1" placeholder="0.0" readonly class="read-only-input" required />
+                      <label>Masa (Min:Saat) <span class="lock-tag">🔒 Auto</span></label>
+                      <input v-model="formData.masaDisplay" type="text" placeholder="00:00" readonly class="read-only-input" required />
                     </div>
                   </div>
 
@@ -538,7 +538,7 @@
                       </div>
                       <div>
                         <span class="lbl">MASA</span>
-                        <span class="val text-yellow">{{ item.masa }} MIN</span>
+                        <span class="val text-yellow">{{ item.masaDisplay }}</span>
                       </div>
                       <div>
                         <span class="lbl">BEBAN</span>
@@ -654,8 +654,9 @@
           activeMainTab.value = 'LOGS'
         }
 
-        const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, masa: null, rpe: 5 })
+        const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, masaDisplay: '', masaSec: 0, rpe: 5 })
 
+        // FIX IMBASAN OCR MASA TEPAT (MM:SS)
         const handleProofUpload = async (event) => {
           const file = event.target.files[0]
           if (!file) return
@@ -672,14 +673,23 @@
             const text = ret.data.text
 
             const kmMatch = text.match(/(\d+[.,]\d{1,2})\s*(km|kilometer)?/i)
-            const timeMatch = text.match(/(\d{1,2}):(\d{2})/) || text.match(/(\d+)\s*(min|mins)/i)
+            
+            // AI DOK CARI MM:SS DENGAN KETEPATAN TINGGI
+            const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
 
             if (kmMatch) formData.value.jarak = parseFloat(kmMatch[1].replace(',', '.'))
+            
             if (timeMatch) {
-              if (timeMatch[2] && !isNaN(timeMatch[2]) && timeMatch[1]) {
-                formData.value.masa = parseFloat((parseInt(timeMatch[1]) + parseInt(timeMatch[2]) / 60).toFixed(1))
-              } else {
-                formData.value.masa = parseFloat(timeMatch[1])
+              const mins = parseInt(timeMatch[1])
+              const secs = parseInt(timeMatch[2])
+              formData.value.masaSec = (mins * 60) + secs
+              formData.value.masaDisplay = `${mins}:${secs < 10 ? '0' : ''}${secs} Min`
+            } else {
+              const minOnlyMatch = text.match(/(\d+)\s*(min|mins)/i)
+              if (minOnlyMatch) {
+                const mins = parseInt(minOnlyMatch[1])
+                formData.value.masaSec = mins * 60
+                formData.value.masaDisplay = `${mins}:00 Min`
               }
             }
 
@@ -692,21 +702,22 @@
           }
         }
 
-        const calculatePace = (j, m) => {
-          if (!j || !m || j <= 0) return '0:00'
-          const secPerKm = (parseFloat(m) * 60) / parseFloat(j)
+        const calculatePace = (j, totalSec) => {
+          if (!j || !totalSec || j <= 0) return '0:00'
+          const secPerKm = totalSec / parseFloat(j)
           const min = Math.floor(secPerKm / 60)
           const sec = Math.round(secPerKm % 60)
           return `${min}:${sec < 10 ? '0' : ''}${sec}`
         }
 
         const handleSubmit = () => {
-          if (!proofImage.value || !formData.value.jarak || !formData.value.masa) {
+          if (!proofImage.value || !formData.value.jarak || !formData.value.masaSec) {
             alert("Sila muat naik gambar bukti larian terlebih dahulu!")
             return
           }
-          const pace = calculatePace(formData.value.jarak, formData.value.masa)
-          const load = Math.round(parseFloat(formData.value.masa) * parseInt(formData.value.rpe))
+          const pace = calculatePace(formData.value.jarak, formData.value.masaSec)
+          const masaMinDecimal = formData.value.masaSec / 60
+          const load = Math.round(masaMinDecimal * parseInt(formData.value.rpe))
 
           const newLog = {
             id: Date.now(),
@@ -715,7 +726,8 @@
             tracker: formData.value.tracker,
             jenis: formData.value.jenis,
             jarak: parseFloat(formData.value.jarak),
-            masa: parseFloat(formData.value.masa),
+            masaSec: formData.value.masaSec,
+            masaDisplay: formData.value.masaDisplay,
             rpe: parseInt(formData.value.rpe),
             pace,
             load,
@@ -727,7 +739,7 @@
           logs.value.unshift(newLog)
           localStorage.setItem('silat_run_logs', JSON.stringify(logs.value))
 
-          formData.value.jarak = null; formData.value.masa = null; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
+          formData.value.jarak = null; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
         }
 
         const deleteUser = (uname) => { logs.value = logs.value.filter(l => l.username !== uname); usersList.value = usersList.value.filter(u => u.username !== uname); localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)); }
@@ -735,8 +747,8 @@
         const deleteLog = (id) => { logs.value = logs.value.filter(l => l.id !== id); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)) }
 
         const exportToCSV = () => {
-          let csv = "data:text/csv;charset=utf-8,Tarikh,Nama,Username,Tracker,Jenis,Jarak (KM),Masa (Min),Pace,RPE,Load\n"
-          logs.value.forEach(r => { csv += `${r.tarikh},${r.nama},${r.username},${r.tracker},${r.jenis},${r.jarak},${r.masa},${r.pace},${r.rpe},${r.load}\n` })
+          let csv = "data:text/csv;charset=utf-8,Tarikh,Nama,Username,Tracker,Jenis,Jarak (KM),Masa,Pace,RPE,Load\n"
+          logs.value.forEach(r => { csv += `${r.tarikh},${r.nama},${r.username},${r.tracker},${r.jenis},${r.jarak},${r.masaDisplay},${r.pace},${r.rpe},${r.load}\n` })
           const link = document.createElement("a"); link.href = encodeURI(csv); link.download = `Rekod_Larian.csv`; link.click()
         }
 
@@ -760,7 +772,15 @@
         const currentWeekId = computed(() => getWeekIdentifier())
         const userWeeklyTotalKm = computed(() => currentUser.value ? logs.value.filter(l => l.username === currentUser.value.username && (l.weekId === currentWeekId.value || !l.weekId)).reduce((a, b) => a + (b.jarak || 0), 0) : 0)
         const totalKmDisplay = computed(() => filteredLogs.value.reduce((a, b) => a + (b.jarak || 0), 0).toFixed(1))
-        const totalMinDisplay = computed(() => filteredLogs.value.reduce((a, b) => a + (b.masa || 0), 0).toFixed(0))
+        
+        // AUTO-FORMAT TAMPILAN JUMLAH MASA
+        const totalMinDisplay = computed(() => {
+          const totalSec = filteredLogs.value.reduce((a, b) => a + (b.masaSec || 0), 0)
+          const m = Math.floor(totalSec / 60)
+          const s = totalSec % 60
+          return `${m}m ${s}s`
+        })
+
         const userTargetPercentage = computed(() => Math.min((userWeeklyTotalKm.value / INDIVIDUAL_TARGET_KM) * 100, 100).toFixed(0))
         const atletListOnly = computed(() => usersList.value.filter(u => u.role === 'atlet'))
 
