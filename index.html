@@ -107,8 +107,7 @@
     .btn-submit { background: #dc2626; color: #ffffff; border: none; font-weight: 900; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 4px; }
     .btn-submit:disabled { opacity: 0.5; }
 
-    .read-only-input { background: #1a2332 !important; border-color: #334155 !important; color: #eab308 !important; font-weight: 900 !important; cursor: not-allowed; }
-    .lock-tag { font-size: 8px; color: #eab308; }
+    .edit-tag { font-size: 8px; color: #22c55e; }
 
     /* FEED ITEM STYLES */
     .feed-header { display: flex; justify-content: space-between; align-items: center; }
@@ -180,7 +179,6 @@
     .text-yellow { color: #eab308; }
     .text-green { color: #22c55e; }
 
-    /* DESKTOP MEDIA QUERY ENHANCEMENTS */
     @media (min-width: 600px) {
       .app-container { padding: 20px; }
       .header { flex-direction: row; justify-content: space-between; }
@@ -380,7 +378,7 @@
             </div>
           </div>
 
-          <!-- TAB 2: PENGURUSAN AKAUN & MUAT NAIK LOGO (ADMIN ONLY) -->
+          <!-- TAB 2: PENGURUSAN AKAUN (ADMIN ONLY) -->
           <div v-else-if="activeMainTab === 'USERS' && currentUser.role === 'admin'" class="space-y-gap">
             <div class="card user-mgmt-card">
               <h2 class="card-title">👥 Senarai Akaun Pengguna</h2>
@@ -463,14 +461,15 @@
                     </div>
                   </div>
 
+                  <!-- INPUT SEKARANG BOLEH DI-EDIT MANUAL JIKA AI SALAH BACA -->
                   <div class="row-2">
                     <div class="form-group">
-                      <label>Jarak (KM) <span class="lock-tag">🔒 Auto</span></label>
-                      <input v-model="formData.jarak" type="number" step="0.01" placeholder="0.00" readonly class="read-only-input" required />
+                      <label>Jarak (KM) <span class="edit-tag">✏️ Boleh Edit</span></label>
+                      <input v-model.number="formData.jarak" type="number" step="0.01" placeholder="Cth: 5.2" required />
                     </div>
                     <div class="form-group">
-                      <label>Masa (Min:Saat) <span class="lock-tag">🔒 Auto</span></label>
-                      <input v-model="formData.masaDisplay" type="text" placeholder="00:00" readonly class="read-only-input" required />
+                      <label>Masa (Min) <span class="edit-tag">✏️ Boleh Edit</span></label>
+                      <input v-model="formData.rawTimeInput" @input="handleManualTimeInput" type="text" placeholder="Cth: 10:52 atau 10.8" required />
                     </div>
                   </div>
 
@@ -497,7 +496,7 @@
                     </div>
                   </div>
 
-                  <button type="submit" class="btn-submit" :disabled="!formData.jarak || isScanning">
+                  <button type="submit" class="btn-submit" :disabled="!formData.jarak || !formData.masaSec || isScanning">
                     HANTAR & SIMPAN REKOD 🚀
                   </button>
                 </form>
@@ -654,9 +653,29 @@
           activeMainTab.value = 'LOGS'
         }
 
-        const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, masaDisplay: '', masaSec: 0, rpe: 5 })
+        const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, rawTimeInput: '', masaDisplay: '', masaSec: 0, rpe: 5 })
 
-        // FIX IMBASAN OCR MASA TEPAT (MM:SS)
+        // FUNGSI CONVERT MASA MANUAL JIKA USER EDIT INPUT
+        const handleManualTimeInput = () => {
+          const val = formData.value.rawTimeInput.trim()
+          if (!val) { formData.value.masaSec = 0; return }
+
+          if (val.includes(':')) {
+            const parts = val.split(':')
+            const m = parseInt(parts[0]) || 0
+            const s = parseInt(parts[1]) || 0
+            formData.value.masaSec = (m * 60) + s
+            formData.value.masaDisplay = `${m}:${s < 10 ? '0' : ''}${s} Min`
+          } else {
+            const floatMin = parseFloat(val) || 0
+            formData.value.masaSec = Math.round(floatMin * 60)
+            const m = Math.floor(floatMin)
+            const s = Math.round((floatMin - m) * 60)
+            formData.value.masaDisplay = `${m}:${s < 10 ? '0' : ''}${s} Min`
+          }
+        }
+
+        // IMBASAN OCR DENGAN LOGIK MASA FLEKSIBEL
         const handleProofUpload = async (event) => {
           const file = event.target.files[0]
           if (!file) return
@@ -672,31 +691,31 @@
             const ret = await Tesseract.recognize(file, 'eng')
             const text = ret.data.text
 
-            const kmMatch = text.match(/(\d+[.,]\d{1,2})\s*(km|kilometer)?/i)
-            
-            // AI DOK CARI MM:SS DENGAN KETEPATAN TINGGI
-            const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
-
+            // CARI JARAK (KM)
+            const kmMatch = text.match(/(\d+[.,]\d{1,2})\s*(km|kilometer)?/i) || text.match(/(\d+[.,]\d{1,2})/)
             if (kmMatch) formData.value.jarak = parseFloat(kmMatch[1].replace(',', '.'))
             
+            // CARI MASA (FORMAT MM:SS ATAU MIN)
+            const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
             if (timeMatch) {
               const mins = parseInt(timeMatch[1])
               const secs = parseInt(timeMatch[2])
               formData.value.masaSec = (mins * 60) + secs
+              formData.value.rawTimeInput = `${mins}:${secs < 10 ? '0' : ''}${secs}`
               formData.value.masaDisplay = `${mins}:${secs < 10 ? '0' : ''}${secs} Min`
             } else {
               const minOnlyMatch = text.match(/(\d+)\s*(min|mins)/i)
               if (minOnlyMatch) {
                 const mins = parseInt(minOnlyMatch[1])
                 formData.value.masaSec = mins * 60
+                formData.value.rawTimeInput = `${mins}:00`
                 formData.value.masaDisplay = `${mins}:00 Min`
               }
             }
 
-            if (!kmMatch && !timeMatch) alert("Gambar kabur atau nombor tidak dikesan. Sila guna screenshot yang lebih jelas.")
-            else scanStatus.value = 'Data KM & Masa berjaya diekstrak!'
+            scanStatus.value = (kmMatch || timeMatch) ? 'Data dikesan! Anda boleh semak/edit jika perlu.' : 'Sila isi jarak & masa secara manual jika gambar kabur.'
           } catch (err) {
-            alert("Gagal membaca gambar. Sila cuba lagi.")
+            scanStatus.value = 'Gagal imbas. Sila masukkan jarak & masa secara manual.'
           } finally {
             isScanning.value = false
           }
@@ -712,7 +731,7 @@
 
         const handleSubmit = () => {
           if (!proofImage.value || !formData.value.jarak || !formData.value.masaSec) {
-            alert("Sila muat naik gambar bukti larian terlebih dahulu!")
+            alert("Sila muat naik gambar bukti & pastikan Jarak & Masa terisi!")
             return
           }
           const pace = calculatePace(formData.value.jarak, formData.value.masaSec)
@@ -739,7 +758,7 @@
           logs.value.unshift(newLog)
           localStorage.setItem('silat_run_logs', JSON.stringify(logs.value))
 
-          formData.value.jarak = null; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
+          formData.value.jarak = null; formData.value.rawTimeInput = ''; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
         }
 
         const deleteUser = (uname) => { logs.value = logs.value.filter(l => l.username !== uname); usersList.value = usersList.value.filter(u => u.username !== uname); localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)); }
@@ -773,7 +792,6 @@
         const userWeeklyTotalKm = computed(() => currentUser.value ? logs.value.filter(l => l.username === currentUser.value.username && (l.weekId === currentWeekId.value || !l.weekId)).reduce((a, b) => a + (b.jarak || 0), 0) : 0)
         const totalKmDisplay = computed(() => filteredLogs.value.reduce((a, b) => a + (b.jarak || 0), 0).toFixed(1))
         
-        // AUTO-FORMAT TAMPILAN JUMLAH MASA
         const totalMinDisplay = computed(() => {
           const totalSec = filteredLogs.value.reduce((a, b) => a + (b.masaSec || 0), 0)
           const m = Math.floor(totalSec / 60)
@@ -820,7 +838,7 @@
         return {
           INDIVIDUAL_TARGET_KM, usersList, logs, customLogo, isRegisterMode, inputName, inputUsername, inputPassword, inputRole, inputCoachKey,
           currentUser, errorMessage, successMessage, selectedFilterUser, activeMainTab, isScanning, scanStatus, proofImage, formData,
-          handleLogin, handleRegister, handleLogout, handleProofUpload, handleSubmit, deleteUser, toggleRole, deleteLog,
+          handleLogin, handleRegister, handleLogout, handleProofUpload, handleManualTimeInput, handleSubmit, deleteUser, toggleRole, deleteLog,
           exportToCSV, filteredLogs, currentWeekId, userWeeklyTotalKm, totalKmDisplay, totalMinDisplay, userTargetPercentage, atletListOnly,
           leaderboardData, redFlagAlerts, getUserBadges, getRpeDescription
         }
