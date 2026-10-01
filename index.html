@@ -574,18 +574,16 @@
 
   <!-- APP SCRIPT LOGIC -->
   <script>
-    // -------------------------------------------------------------
-    // 🔥 TETAPAN FIREBASE REALTIME DATABASE FATANI KEDAH 🔥
-    // Gantikan objek di bawah ini dengan firebaseConfig projek anda!
-    // -------------------------------------------------------------
+    // 🔥 CONFIGURASI FIREBASE PROJEK SISTEM-FITNESS 🔥
     const firebaseConfig = {
-      apiKey: "AIzaSyYOUR_API_KEY_HERE",
-      authDomain: "pesilat-fatani.firebaseapp.com",
-      databaseURL: "https://pesilat-fatani-default-rtdb.firebaseio.net",
-      projectId: "pesilat-fatani",
-      storageBucket: "pesilat-fatani.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef123456"
+      apiKey: "AIzaSyDXSjQHOENV2PqnxLvTQ9KfbqhoiQvNgj4",
+      authDomain: "sistem-fitness.firebaseapp.com",
+      databaseURL: "https://sistem-fitness-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "sistem-fitness",
+      storageBucket: "sistem-fitness.firebasestorage.app",
+      messagingSenderId: "818826773167",
+      appId: "1:818826773167:web:8289d889efc831e682ca5a",
+      measurementId: "G-KE9LNXVETY"
     };
 
     // Initialize Firebase
@@ -638,7 +636,7 @@
             if (val) {
               usersList.value = Object.values(val)
             } else {
-              // Master Admin Default jika pangkalan data kosong
+              // Master Admin Default jika database kosong
               const defaultAdmin = { username: 'admin', password: 'admin123', name: 'Super Admin', role: 'admin' }
               db.ref('users/admin').set(defaultAdmin)
             }
@@ -812,7 +810,7 @@
             tarikh: new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })
           }
 
-          // 🔥 HANTAR REKOD KE FIREBASE DB (REALTIME SYNC KE PON PHONE COACH)
+          // 🔥 HANTAR REKOD KE FIREBASE DB (REALTIME SYNC KE PHONE COACH)
           db.ref('logs/' + logId).set(newLog)
 
           formData.value.jarak = null; formData.value.rawTimeInput = ''; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
