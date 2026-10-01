@@ -139,8 +139,42 @@
     .load-high { color: #ef4444; font-weight: 900; }
 
     .proof-feed-box { background: #161e2e; padding: 6px; border-radius: 8px; border: 1px solid #2d3748; margin-top: 2px; }
-    .proof-label { font-size: 8px; color: #64748b; font-weight: bold; display: block; margin-bottom: 2px; }
-    .proof-feed-img { height: 75px; border-radius: 6px; object-fit: cover; border: 1px solid #334155; }
+    .proof-label { font-size: 8px; color: #22c55e; font-weight: bold; display: block; margin-bottom: 4px; }
+    .proof-feed-img { height: 90px; width: 100%; border-radius: 6px; object-fit: cover; border: 1px solid #334155; cursor: pointer; transition: transform 0.2s; }
+    .proof-feed-img:active { transform: scale(0.98); }
+
+    /* MODAL POPUP ZOOM GAMBAR PROOF */
+    .image-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .modal-img {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 12px;
+      border: 2px solid #22c55e;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    .btn-close-modal {
+      margin-top: 14px;
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 12px;
+      cursor: pointer;
+    }
 
     /* LEADERBOARD MOBILE STYLES */
     .rank-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; width: 100%; }
@@ -555,10 +589,8 @@
                     </div>
 
                     <div v-if="item.proofImg" class="proof-feed-box">
-                      <span class="proof-label">🔍 Bukti Screenshot:</span>
-                      <a :href="item.proofImg" target="_blank">
-                        <img :src="item.proofImg" alt="Bukti Larian" class="proof-feed-img" />
-                      </a>
+                      <span class="proof-label">🔍 Klik Gambar Untuk Zoom:</span>
+                      <img :src="item.proofImg" alt="Bukti Larian" class="proof-feed-img" @click="openImageModal(item.proofImg)" />
                     </div>
                   </div>
                 </div>
@@ -570,6 +602,13 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL POPUP TEKAN GAMBAR DENGAN FULLSCREEN ZOOM -->
+    <div v-if="selectedModalImg" class="image-modal-overlay" @click.self="closeImageModal">
+      <img :src="selectedModalImg" class="modal-img" alt="Bukti Larian Zoom" />
+      <button @click="closeImageModal" class="btn-close-modal">✖ TUTUP GAMBAR</button>
+    </div>
+
   </div>
 
   <!-- APP SCRIPT LOGIC -->
@@ -619,6 +658,17 @@
         const scanStatus = ref('')
         const proofImage = ref(null)
 
+        // PEMBOLEHUBAH UNTUK MODAL ZOOM GAMBAR
+        const selectedModalImg = ref(null)
+
+        const openImageModal = (imgUrl) => {
+          selectedModalImg.value = imgUrl
+        }
+
+        const closeImageModal = () => {
+          selectedModalImg.value = null
+        }
+
         const getWeekIdentifier = (d = new Date()) => {
           const date = new Date(d.getTime())
           date.setHours(0, 0, 0, 0)
@@ -628,21 +678,18 @@
           return `${date.getFullYear()}-W${weekNo < 10 ? '0' : ''}${weekNo}`
         }
 
-        // 🔥 LISTEN REALTIME DATA DARI FIREBASE ON MOUNT
+        // LISTEN REALTIME DATA DARI FIREBASE ON MOUNT
         onMounted(() => {
-          // Sync Akaun Pengguna
           db.ref('users').on('value', (snapshot) => {
             const val = snapshot.val()
             if (val) {
               usersList.value = Object.values(val)
             } else {
-              // Master Admin Default jika database kosong
               const defaultAdmin = { username: 'admin', password: 'admin123', name: 'Super Admin', role: 'admin' }
               db.ref('users/admin').set(defaultAdmin)
             }
           })
 
-          // Sync Log Larian Realtime
           db.ref('logs').on('value', (snapshot) => {
             const val = snapshot.val()
             if (val) {
@@ -675,8 +722,6 @@
           if (inputRole.value === 'coach' && inputCoachKey.value !== COACH_SECRET_KEY) { errorMessage.value = 'Kunci Rahsia Coach salah!'; return }
 
           const newUser = { username: cleanUname, password: inputPassword.value, name: inputName.value.trim(), role: inputRole.value }
-          
-          // Hantar akaun baru ke Firebase Realtime DB
           db.ref('users/' + cleanUname).set(newUser)
 
           successMessage.value = `Pendaftaran berjaya! Sila log masuk.`
@@ -810,7 +855,6 @@
             tarikh: new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })
           }
 
-          // 🔥 HANTAR REKOD KE FIREBASE DB (REALTIME SYNC KE PHONE COACH)
           db.ref('logs/' + logId).set(newLog)
 
           formData.value.jarak = null; formData.value.rawTimeInput = ''; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
@@ -909,6 +953,7 @@
         return {
           INDIVIDUAL_TARGET_KM, usersList, logs, customLogo, isRegisterMode, inputName, inputUsername, inputPassword, inputRole, inputCoachKey,
           currentUser, errorMessage, successMessage, selectedFilterUser, activeMainTab, isScanning, scanStatus, proofImage, formData,
+          selectedModalImg, openImageModal, closeImageModal,
           handleLogin, handleRegister, handleLogout, handleProofUpload, handleManualTimeInput, handleSubmit, deleteUser, toggleRole, deleteLog,
           exportToCSV, filteredLogs, currentWeekId, userWeeklyTotalKm, totalKmDisplay, totalMinDisplay, userTargetPercentage, atletListOnly,
           leaderboardData, redFlagAlerts, getUserBadges, getRpeDescription
