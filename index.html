@@ -4,10 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>PESILAT FATANI KEDAH</title>
+  
+  <!-- PWA Manifest Link -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#dc2626" />
+
   <!-- Load Vue 3 dari CDN -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <!-- Load Tesseract OCR dari CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  
+  <!-- Load Firebase SDK (App & Realtime Database) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <style>
     /* CSS RESET & MOBILE RESPONSIVE FIX */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -461,14 +471,13 @@
                     </div>
                   </div>
 
-                  <!-- INPUT BOLEH DI-EDIT MANUAL JIKA AI SALAH BACA -->
                   <div class="row-2">
                     <div class="form-group">
                       <label>Jarak (KM) <span class="edit-tag">✏️ Boleh Edit</span></label>
                       <input v-model.number="formData.jarak" type="number" step="0.01" placeholder="Cth: 5.2" required />
                     </div>
                     <div class="form-group">
-                      <label>Masa (Min) <span class="edit-tag">✏️️ Boleh Edit</span></label>
+                      <label>Masa (Min) <span class="edit-tag">✏️ Boleh Edit</span></label>
                       <input v-model="formData.rawTimeInput" @input="handleManualTimeInput" type="text" placeholder="Cth: 10:52 atau 10.8" required />
                     </div>
                   </div>
@@ -565,6 +574,24 @@
 
   <!-- APP SCRIPT LOGIC -->
   <script>
+    // -------------------------------------------------------------
+    // 🔥 TETAPAN FIREBASE REALTIME DATABASE FATANI KEDAH 🔥
+    // Gantikan objek di bawah ini dengan firebaseConfig projek anda!
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyYOUR_API_KEY_HERE",
+      authDomain: "pesilat-fatani.firebaseapp.com",
+      databaseURL: "https://pesilat-fatani-default-rtdb.firebaseio.net",
+      projectId: "pesilat-fatani",
+      storageBucket: "pesilat-fatani.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef123456"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     const { createApp, ref, computed, onMounted } = Vue
 
     createApp({
@@ -603,20 +630,30 @@
           return `${date.getFullYear()}-W${weekNo < 10 ? '0' : ''}${weekNo}`
         }
 
+        // 🔥 LISTEN REALTIME DATA DARI FIREBASE ON MOUNT
         onMounted(() => {
-          const savedUsers = localStorage.getItem('silat_run_users')
-          if (savedUsers) {
-            usersList.value = JSON.parse(savedUsers)
-          } else {
-            usersList.value = [{ username: 'admin', password: 'admin123', name: 'Super Admin', role: 'admin' }]
-            localStorage.setItem('silat_run_users', JSON.stringify(usersList.value))
-          }
+          // Sync Akaun Pengguna
+          db.ref('users').on('value', (snapshot) => {
+            const val = snapshot.val()
+            if (val) {
+              usersList.value = Object.values(val)
+            } else {
+              // Master Admin Default jika pangkalan data kosong
+              const defaultAdmin = { username: 'admin', password: 'admin123', name: 'Super Admin', role: 'admin' }
+              db.ref('users/admin').set(defaultAdmin)
+            }
+          })
 
-          const savedLogs = localStorage.getItem('silat_run_logs')
-          if (savedLogs) logs.value = JSON.parse(savedLogs)
-
-          const savedLogo = localStorage.getItem('silat_run_logo')
-          if (savedLogo) customLogo.value = savedLogo
+          // Sync Log Larian Realtime
+          db.ref('logs').on('value', (snapshot) => {
+            const val = snapshot.val()
+            if (val) {
+              const list = Object.values(val)
+              logs.value = list.sort((a, b) => b.id - a.id)
+            } else {
+              logs.value = []
+            }
+          })
         })
 
         const handleLogin = () => {
@@ -634,13 +671,15 @@
         const handleRegister = () => {
           errorMessage.value = ''
           successMessage.value = ''
-          const exists = usersList.value.some(u => u.username.toLowerCase() === inputUsername.value.trim().toLowerCase())
+          const cleanUname = inputUsername.value.trim().toLowerCase()
+          const exists = usersList.value.some(u => u.username.toLowerCase() === cleanUname)
           if (exists) { errorMessage.value = 'Username ini sudah digunakan!'; return }
           if (inputRole.value === 'coach' && inputCoachKey.value !== COACH_SECRET_KEY) { errorMessage.value = 'Kunci Rahsia Coach salah!'; return }
 
-          const newUser = { username: inputUsername.value.trim().toLowerCase(), password: inputPassword.value, name: inputName.value.trim(), role: inputRole.value }
-          usersList.value.push(newUser)
-          localStorage.setItem('silat_run_users', JSON.stringify(usersList.value))
+          const newUser = { username: cleanUname, password: inputPassword.value, name: inputName.value.trim(), role: inputRole.value }
+          
+          // Hantar akaun baru ke Firebase Realtime DB
+          db.ref('users/' + cleanUname).set(newUser)
 
           successMessage.value = `Pendaftaran berjaya! Sila log masuk.`
           isRegisterMode.value = false
@@ -655,7 +694,6 @@
 
         const formData = ref({ tracker: 'Strava', jenis: 'Base Run (Zone 2)', jarak: null, rawTimeInput: '', masaDisplay: '', masaSec: 0, rpe: 5 })
 
-        // FUNGSI CONVERT MASA MANUAL JIKA USER EDIT INPUT
         const handleManualTimeInput = () => {
           const val = formData.value.rawTimeInput.trim()
           if (!val) { formData.value.masaSec = 0; return }
@@ -675,7 +713,6 @@
           }
         }
 
-        // FUNGSI COMPRESS GAMBAR SCREENSHOT (3MB -> ~80KB)
         const compressImage = (file) => {
           return new Promise((resolve) => {
             const reader = new FileReader()
@@ -692,15 +729,12 @@
 
                 const ctx = canvas.getContext('2d')
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-                
-                // CONVERT KE JPEG QUALITY 60%
                 resolve(canvas.toDataURL('image/jpeg', 0.6))
               }
             }
           })
         }
 
-        // IMBASAN OCR DENGAN AUTO COMPRESSION
         const handleProofUpload = async (event) => {
           const file = event.target.files[0]
           if (!file) return
@@ -709,19 +743,15 @@
           scanStatus.value = 'Mengecilkan saiz gambar & mengekstrak data...'
 
           try {
-            // 1. COMPRESS GAMBAR DULU
             const compressedBase64 = await compressImage(file)
             proofImage.value = compressedBase64
 
-            // 2. HANTAR KE OCR TESSERACT
             const ret = await Tesseract.recognize(compressedBase64, 'eng')
             const text = ret.data.text
 
-            // CARI JARAK (KM)
             const kmMatch = text.match(/(\d+[.,]\d{1,2})\s*(km|kilometer)?/i) || text.match(/(\d+[.,]\d{1,2})/)
             if (kmMatch) formData.value.jarak = parseFloat(kmMatch[1].replace(',', '.'))
             
-            // CARI MASA (FORMAT MM:SS ATAU MIN)
             const timeMatch = text.match(/(\d{1,2}):(\d{2})/)
             if (timeMatch) {
               const mins = parseInt(timeMatch[1])
@@ -763,9 +793,10 @@
           const pace = calculatePace(formData.value.jarak, formData.value.masaSec)
           const masaMinDecimal = formData.value.masaSec / 60
           const load = Math.round(masaMinDecimal * parseInt(formData.value.rpe))
+          const logId = Date.now().toString()
 
           const newLog = {
-            id: Date.now(),
+            id: logId,
             username: currentUser.value.username,
             nama: currentUser.value.name,
             tracker: formData.value.tracker,
@@ -781,15 +812,31 @@
             tarikh: new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' })
           }
 
-          logs.value.unshift(newLog)
-          localStorage.setItem('silat_run_logs', JSON.stringify(logs.value))
+          // 🔥 HANTAR REKOD KE FIREBASE DB (REALTIME SYNC KE PON PHONE COACH)
+          db.ref('logs/' + logId).set(newLog)
 
           formData.value.jarak = null; formData.value.rawTimeInput = ''; formData.value.masaDisplay = ''; formData.value.masaSec = 0; formData.value.rpe = 5; proofImage.value = null; scanStatus.value = ''
         }
 
-        const deleteUser = (uname) => { logs.value = logs.value.filter(l => l.username !== uname); usersList.value = usersList.value.filter(u => u.username !== uname); localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)); }
-        const toggleRole = (uname) => { const u = usersList.value.find(x => x.username === uname); if(u) { u.role = u.role === 'atlet' ? 'coach' : 'atlet'; localStorage.setItem('silat_run_users', JSON.stringify(usersList.value)); } }
-        const deleteLog = (id) => { logs.value = logs.value.filter(l => l.id !== id); localStorage.setItem('silat_run_logs', JSON.stringify(logs.value)) }
+        const deleteUser = (uname) => {
+          if(confirm(`Padam akaun ${uname}?`)) {
+            db.ref('users/' + uname).remove()
+          }
+        }
+
+        const toggleRole = (uname) => {
+          const u = usersList.value.find(x => x.username === uname)
+          if(u) {
+            const newRole = u.role === 'atlet' ? 'coach' : 'atlet'
+            db.ref('users/' + uname + '/role').set(newRole)
+          }
+        }
+
+        const deleteLog = (id) => {
+          if(confirm("Padam rekod larian ini?")) {
+            db.ref('logs/' + id).remove()
+          }
+        }
 
         const exportToCSV = () => {
           let csv = "data:text/csv;charset=utf-8,Tarikh,Nama,Username,Tracker,Jenis,Jarak (KM),Masa,Pace,RPE,Load\n"
