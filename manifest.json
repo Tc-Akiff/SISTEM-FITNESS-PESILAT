@@ -1,0 +1,15 @@
+{
+  "name": "Pesilat Fatani Kedah",
+  "short_name": "FataniFit",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#dc2626",
+  "icons": [
+    {
+      "src": "LOGO FATANI.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
